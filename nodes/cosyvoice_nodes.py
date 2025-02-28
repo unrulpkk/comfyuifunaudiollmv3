@@ -163,6 +163,10 @@ class CosyVoice2InstructNode:
         return {
             "required":{
                 "prompt_wav": ("AUDIO",),
+                "prompt_text":("STRING",{
+                    "default": "",
+                    "multiline": True
+                }),                
                 "tts_text":("STRING", {
                     "default": "",
                     "multiline": True
@@ -187,10 +191,10 @@ class CosyVoice2InstructNode:
         }
     
     CATEGORY = CATEGORY_NAME
-    RETURN_TYPES = ("AUDIO",)
+    RETURN_TYPES = ("AUDIO","SPK_MODEL",)
     FUNCTION="generate"
 
-    def generate(self, tts_text, instruct_text, speed, seed, text_frontend, polyreplace, prompt_wav=None):
+    def generate(self, tts_text,prompt_text, instruct_text, speed, seed, text_frontend, polyreplace, prompt_wav=None):
         t0 = ttime()
         _, model_dir = download_cosyvoice2_05B()
         cosyvoice = CosyVoice2(model_dir)
@@ -203,7 +207,13 @@ class CosyVoice2InstructNode:
         prompt_speech_16k = fAudioTool.postprocess(speech)
         set_all_random_seed(seed)
         output = cosyvoice.inference_instruct2(tts_text, instruct_text,prompt_speech_16k, False, speed, text_frontend)
-        return return_audio(output,t0,None)
+        if prompt_text:
+            spk_model = cosyvoice.frontend.frontend_zero_shot(tts_text, prompt_text, prompt_speech_16k,24000)
+            del spk_model['text']
+            del spk_model['text_len']        
+        else:
+            spk_model = None
+        return return_audio(output,t0,spk_model)
 
 # 零样本音色克隆
 class CosyVoiceZeroShotNode:
